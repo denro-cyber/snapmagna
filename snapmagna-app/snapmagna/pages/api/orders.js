@@ -1,22 +1,28 @@
 // POST /api/orders
-// Receives: { image (base64), size, ts }
-// For now saves to console — later connects to Firebase + PrintNode
+// Receives: { orderId, pack, price, photoUrls, ts }
+// Saves order details — photoUrls are Cloudinary links
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { image, size, ts } = req.body
+  const { orderId, pack, price, photoUrls, ts } = req.body
 
-  // Log the order (replace with Firebase save later)
-  console.log(`New order: size=${size} timestamp=${ts} imageLength=${image?.length}`)
+  // Log the order with Cloudinary URLs
+  console.log('=== NEW ORDER ===')
+  console.log(`Order ID: ${orderId}`)
+  console.log(`Pack: ${pack} magnets · ${price}`)
+  console.log(`Photos (${photoUrls?.length}):`)
+  photoUrls?.forEach((url, i) => console.log(`  ${i+1}. ${url}`))
+  console.log(`Time: ${new Date(ts).toLocaleString()}`)
+  console.log('================')
 
-  // Return order confirmation
+  // Return success
   res.status(200).json({
     success: true,
-    orderId: Math.floor(1000 + Math.random() * 9000),
-    size,
-    ts,
+    orderId,
+    message: 'Order received! Photos saved to Cloudinary.',
+    photoUrls,
   })
 }
