@@ -1,4 +1,4 @@
-# SnapMagna — Customer Photo Upload App
+# SnapMagna — Customer Photo Upload App 
 
 Customer-facing web app: QR scan → upload photo → crop → preview → print order.
 
