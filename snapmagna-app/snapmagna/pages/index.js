@@ -24,10 +24,11 @@ const PACKS = [
 
 const Logo = () => (
   <div style={{ textAlign: 'center', padding: '20px 0 16px' }}>
-    <div style={{ fontSize: 22, color: '#C4964A', letterSpacing: 2, fontFamily: 'Georgia, serif' }}>
-      snap<span style={{ color: '#2C2415' }}>magna</span>
-    </div>
-    <div style={{ width: 32, height: 1.5, background: '#C4964A', margin: '5px auto 0' }} />
+    <img 
+      src="https://raw.githubusercontent.com/denro-cyber/snapmagna/main/snapmagna-app/snapmagna/SnapMagna_Logo.png"
+      alt="SnapMagna"
+      style={{ height: 60, width: 'auto', objectFit: 'contain' }}
+    />
   </div>
 )
 
