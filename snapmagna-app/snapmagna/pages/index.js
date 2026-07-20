@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
 import Head from 'next/head'
-import '../styles/globals.css'
 
 // ── Brand tokens ──────────────────────────────
 const C = {
