@@ -1,411 +1,351 @@
 import { useState, useRef, useCallback } from 'react'
 import Head from 'next/head'
 
-// ── Brand tokens ──────────────────────────────
 const C = {
   gold:      '#C4964A',
   goldDark:  '#9A7435',
   goldLight: '#F5E9D5',
+  goldBorder:'#E8D5B0',
   brown:     '#2C2415',
   muted:     '#7A6A52',
   border:    '#E8DFD0',
   cream:     '#FAF7F2',
   white:     '#FFFFFF',
-  overlay:   'rgba(0,0,0,0.55)',
+  green:     '#2D7A3A',
+  greenLight:'#E8F5EB',
 }
 
-const SIZES = [
-  { id: '2x2',     label: '2" × 2"',     ratio: 1,         desc: 'Most popular online',     px: 600 },
-  { id: '2.5x2.5', label: '2.5" × 2.5"', ratio: 1,         desc: 'Great for portraits',     px: 750 },
-  { id: '2.5x3.5', label: '2.5" × 3.5"', ratio: 2.5 / 3.5, desc: 'Best for events',         px: 750 },
+const PACKS = [
+  { id: 5,  label: '5 Pack',  price: '$21.99', per: '$4.40 each' },
+  { id: 9,  label: '9 Pack',  price: '$34.99', per: '$3.89 each' },
+  { id: 25, label: '25 Pack', price: '$84.99', per: '$3.40 each' },
+  { id: 50, label: '50 Pack', price: '$159.99',per: '$3.20 each' },
 ]
 
-// ── Tiny UI atoms ─────────────────────────────
-const Btn = ({ children, onClick, secondary, disabled, style = {} }) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    style={{
-      width: '100%', padding: '14px 28px', borderRadius: 50,
-      fontFamily: 'Georgia, serif', fontSize: 15, cursor: disabled ? 'not-allowed' : 'pointer',
-      letterSpacing: 0.4, border: secondary ? `1.5px solid ${C.border}` : 'none',
-      background: disabled ? C.border : secondary ? 'transparent' : C.gold,
-      color: disabled ? C.muted : secondary ? C.muted : C.white,
-      transition: 'all 0.2s', opacity: disabled ? 0.6 : 1,
-      ...style,
-    }}
-  >
-    {children}
-  </button>
-)
-
-const Dots = ({ step, total = 5 }) => (
-  <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 28 }}>
-    {Array.from({ length: total }).map((_, i) => (
-      <div key={i} style={{
-        width: i === step ? 24 : 8, height: 8, borderRadius: 4,
-        background: i === step ? C.gold : C.border, transition: 'all 0.3s',
-      }} />
-    ))}
-  </div>
-)
-
 const Logo = () => (
-  <div style={{ textAlign: 'center', marginBottom: 6 }}>
-    <span style={{ fontFamily: 'Georgia, serif', fontSize: 22, color: C.gold, letterSpacing: 2 }}>
-      snap<span style={{ color: C.brown }}>magna</span>
-    </span>
-    <div style={{ width: 32, height: 1.5, background: C.gold, margin: '5px auto 0' }} />
+  <div style={{ textAlign: 'center', padding: '20px 0 16px' }}>
+    <div style={{ fontSize: 22, color: '#C4964A', letterSpacing: 2, fontFamily: 'Georgia, serif' }}>
+      snap<span style={{ color: '#2C2415' }}>magna</span>
+    </div>
+    <div style={{ width: 32, height: 1.5, background: '#C4964A', margin: '5px auto 0' }} />
   </div>
 )
 
-// ── Screen 1: Welcome ─────────────────────────
-function Welcome({ onStart }) {
-  return (
-    <div style={{ animation: 'fadeUp 0.5s ease both', textAlign: 'center', paddingTop: 40 }}>
-      <Logo />
-      <div style={{ fontSize: 60, margin: '20px 0 14px' }}>📸</div>
-      <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 26, fontWeight: 400, color: C.brown, marginBottom: 12 }}>
-        Your memory,<br />on a magnet.
-      </h1>
-      <p style={{ color: C.muted, fontSize: 15, lineHeight: 1.75, marginBottom: 36 }}>
-        Upload a photo, choose your size,<br />and we'll print it while you celebrate.
-      </p>
-      <Btn onClick={onStart}>Get started →</Btn>
-      <p style={{ color: C.border, fontSize: 12, marginTop: 16 }}>Takes less than 60 seconds</p>
-    </div>
-  )
-}
+const Btn = ({ children, onClick, disabled, secondary, style = {} }) => (
+  <button onClick={onClick} disabled={disabled} style={{
+    width: '100%',
+    padding: '14px 20px',
+    borderRadius: 50,
+    border: secondary ? '1.5px solid #E8DFD0' : 'none',
+    background: disabled ? '#E0D8CC' : secondary ? 'transparent' : '#C4964A',
+    color: disabled ? '#7A6A52' : secondary ? '#7A6A52' : '#FFFFFF',
+    fontFamily: 'Georgia, serif',
+    fontSize: 15,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    transition: 'all 0.2s',
+    letterSpacing: 0.3,
+    ...style,
+  }}>{children}</button>
+)
 
-// ── Screen 2: Size picker ─────────────────────
-function SizePicker({ selected, onSelect, onNext, onBack }) {
-  return (
-    <div style={{ animation: 'fadeUp 0.4s ease both' }}>
-      <Dots step={0} />
-      <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 400, color: C.brown, marginBottom: 4 }}>
-        Choose your magnet size
-      </h2>
-      <p style={{ color: C.muted, fontSize: 13, marginBottom: 22 }}>You can order a different size anytime.</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-        {SIZES.map(s => (
-          <div
-            key={s.id}
-            onClick={() => onSelect(s)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 14,
-              padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
-              border: `2px solid ${selected.id === s.id ? C.gold : C.border}`,
-              background: selected.id === s.id ? C.goldLight : C.white,
-              transition: 'all 0.2s',
-            }}
-          >
-            <div style={{
-              width: s.ratio >= 1 ? 40 : Math.round(40 * s.ratio),
-              height: s.ratio >= 1 ? Math.round(40 / s.ratio) : 40,
-              minWidth: 28, borderRadius: 3,
-              background: selected.id === s.id ? C.gold : C.border,
-              transition: 'all 0.2s', flexShrink: 0,
-            }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: 'Georgia, serif', fontSize: 15, color: C.brown }}>{s.label}</div>
-              <div style={{ fontSize: 12, color: C.muted }}>{s.desc}</div>
-            </div>
-            {selected.id === s.id && (
-              <div style={{
-                width: 20, height: 20, borderRadius: '50%', background: C.gold,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white', fontSize: 12,
-              }}>✓</div>
-            )}
-          </div>
-        ))}
-      </div>
-      <Btn onClick={onNext}>Continue →</Btn>
-      <div style={{ marginTop: 10 }}><Btn secondary onClick={onBack}>← Back</Btn></div>
-    </div>
-  )
-}
+function Slot({ index, photo, onUpload, onRemove }) {
+  const ref = useRef(null)
 
-// ── Screen 3: Upload ──────────────────────────
-function Upload({ onImage, onBack }) {
-  const fileRef = useRef(null)
-  const [dragging, setDragging] = useState(false)
-  const [error, setError]       = useState(null)
-
-  const process = (file) => {
-    if (!file || !file.type.startsWith('image/')) {
-      setError('Please select a JPG, PNG or HEIC image.')
-      return
-    }
+  const handleFile = useCallback((file) => {
+    if (!file || !file.type.startsWith('image/')) return
     const reader = new FileReader()
-    reader.onload = e => onImage(e.target.result)
+    reader.onload = e => onUpload(index, e.target.result)
     reader.readAsDataURL(file)
+  }, [index, onUpload])
+
+  return (
+    <div
+      onClick={() => !photo && ref.current.click()}
+      onDragOver={e => e.preventDefault()}
+      onDrop={e => { e.preventDefault(); handleFile(e.dataTransfer.files[0]) }}
+      style={{
+        aspectRatio: '1',
+        borderRadius: 10,
+        border: photo ? '2px solid #E8D5B0' : '2px dashed #E8DFD0',
+        background: photo ? 'transparent' : '#FFFFFF',
+        cursor: photo ? 'default' : 'pointer',
+        position: 'relative',
+        overflow: 'hidden',
+        transition: 'all 0.2s',
+      }}
+    >
+      {photo ? (
+        <>
+          <img src={photo} alt={`Photo ${index + 1}`}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <button
+            onClick={e => { e.stopPropagation(); onRemove(index) }}
+            style={{
+              position: 'absolute', top: 4, right: 4,
+              width: 22, height: 22, borderRadius: '50%',
+              background: 'rgba(0,0,0,0.6)', color: 'white',
+              border: 'none', cursor: 'pointer', fontSize: 13,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>×</button>
+          <div style={{
+            position: 'absolute', bottom: 4, left: 4,
+            background: '#C4964A', color: 'white',
+            fontSize: 10, borderRadius: 10,
+            padding: '1px 6px', fontFamily: 'Georgia, serif',
+          }}>{index + 1}</div>
+        </>
+      ) : (
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 4,
+        }}>
+          <div style={{ fontSize: 22, opacity: 0.4 }}>+</div>
+          <div style={{ fontSize: 10, color: '#E8DFD0', textAlign: 'center', lineHeight: 1.3 }}>
+            Photo {index + 1}
+          </div>
+        </div>
+      )}
+      <input ref={ref} type="file" accept="image/*" capture="environment"
+        style={{ display: 'none' }}
+        onChange={e => handleFile(e.target.files[0])} />
+    </div>
+  )
+}
+
+export default function App() {
+  const [step,       setStep]       = useState('pack')
+  const [pack,       setPack]       = useState(null)
+  const [photos,     setPhotos]     = useState([])
+  const [submitting, setSubmitting] = useState(false)
+
+  const filled    = photos.filter(Boolean).length
+  const total     = pack?.id ?? 0
+  const allFilled = filled === total && total > 0
+
+  const selectPack = (p) => {
+    setPack(p)
+    setPhotos(Array(p.id).fill(null))
   }
 
-  return (
-    <div style={{ animation: 'fadeUp 0.4s ease both' }}>
-      <Dots step={1} />
-      <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 400, color: C.brown, marginBottom: 4 }}>
-        Upload your photo
-      </h2>
-      <p style={{ color: C.muted, fontSize: 13, marginBottom: 22 }}>From your camera roll or take one now.</p>
-      <div
-        onClick={() => fileRef.current.click()}
-        onDragOver={e => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={e => { e.preventDefault(); setDragging(false); process(e.dataTransfer.files[0]) }}
-        style={{
-          border: `2px dashed ${dragging ? C.gold : C.border}`,
-          borderRadius: 14, padding: '44px 20px', textAlign: 'center',
-          cursor: 'pointer', background: dragging ? C.goldLight : C.white,
-          transition: 'all 0.2s', marginBottom: 14,
-        }}
-      >
-        <div style={{ fontSize: 44, marginBottom: 10 }}>🖼️</div>
-        <div style={{ fontFamily: 'Georgia, serif', fontSize: 15, color: C.brown, marginBottom: 4 }}>
-          Tap to choose a photo
-        </div>
-        <div style={{ color: C.muted, fontSize: 12 }}>or drag and drop here</div>
-        <input
-          ref={fileRef} type="file" accept="image/*" capture="environment"
-          style={{ display: 'none' }}
-          onChange={e => process(e.target.files[0])}
-        />
-      </div>
-      {error && <p style={{ color: '#C0392B', fontSize: 12, marginBottom: 10 }}>{error}</p>}
-      <p style={{ fontSize: 11, color: C.border, textAlign: 'center', marginBottom: 18 }}>
-        💡 Use a photo at least 750 × 750px for a sharp print
-      </p>
-      <Btn secondary onClick={onBack}>← Back</Btn>
-    </div>
-  )
-}
+  const uploadPhoto = useCallback((index, src) => {
+    setPhotos(prev => { const n = [...prev]; n[index] = src; return n })
+  }, [])
 
-// ── Screen 4: Crop ────────────────────────────
-function Crop({ image, size, onCrop, onBack }) {
-  const imgRef    = useRef(null)
-  const drag      = useRef({ on: false, sx: 0, sy: 0, ox: 0, oy: 0 })
-  const [loaded,  setLoaded]  = useState(false)
-  const [imgDims, setImgDims] = useState({ w: 0, h: 0 })
-  const [box,     setBox]     = useState({ x: 0, y: 0, w: 0, h: 0 })
+  const removePhoto = useCallback((index) => {
+    setPhotos(prev => { const n = [...prev]; n[index] = null; return n })
+  }, [])
 
-  const init = useCallback(() => {
-    const img = imgRef.current
-    if (!img) return
-    const { width, height } = img.getBoundingClientRect()
-    const r = size.ratio
-    let bw, bh
-    if (r >= 1) {
-      bw = width * 0.85; bh = bw / r
-      if (bh > height * 0.85) { bh = height * 0.85; bw = bh * r }
-    } else {
-      bh = height * 0.85; bw = bh * r
-      if (bw > width * 0.85) { bw = width * 0.85; bh = bw / r }
-    }
-    setImgDims({ w: width, h: height })
-    setBox({ x: (width - bw) / 2, y: (height - bh) / 2, w: bw, h: bh })
-    setLoaded(true)
-  }, [size])
-
-  const xy = e => { const t = e.touches?.[0] ?? e; return { x: t.clientX, y: t.clientY } }
-  const onDown = useCallback(e => {
-    e.preventDefault()
-    const { x, y } = xy(e)
-    drag.current = { on: true, sx: x, sy: y, ox: box.x, oy: box.y }
-  }, [box])
-  const onMove = useCallback(e => {
-    if (!drag.current.on) return
-    const { x, y } = xy(e)
-    setBox(b => ({
-      ...b,
-      x: Math.max(0, Math.min(imgDims.w - b.w, drag.current.ox + x - drag.current.sx)),
-      y: Math.max(0, Math.min(imgDims.h - b.h, drag.current.oy + y - drag.current.sy)),
-    }))
-  }, [imgDims])
-  const onUp = useCallback(() => { drag.current.on = false }, [])
-
-  const confirm = useCallback(() => {
-    const img = imgRef.current
-    if (!img) return
-    const sx = img.naturalWidth  / imgDims.w
-    const sy = img.naturalHeight / imgDims.h
-    const OUT_W = size.px
-    const OUT_H = Math.round(OUT_W / size.ratio)
-    const canvas = document.createElement('canvas')
-    canvas.width = OUT_W; canvas.height = OUT_H
-    canvas.getContext('2d').drawImage(img,
-      box.x * sx, box.y * sy, box.w * sx, box.h * sy,
-      0, 0, OUT_W, OUT_H)
-    onCrop(canvas.toDataURL('image/jpeg', 0.95))
-  }, [imgRef, imgDims, box, size, onCrop])
-
-  const H = { position: 'absolute', width: 14, height: 14, background: 'white', borderRadius: 2 }
-
-  return (
-    <div style={{ animation: 'fadeUp 0.4s ease both' }}>
-      <Dots step={2} />
-      <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 400, color: C.brown, marginBottom: 4 }}>
-        Frame your photo
-      </h2>
-      <p style={{ color: C.muted, fontSize: 13, marginBottom: 14 }}>
-        Drag the box to choose what goes on your magnet.
-      </p>
-      <div
-        style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', touchAction: 'none', userSelect: 'none', background: '#000' }}
-        onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
-        onTouchMove={onMove} onTouchEnd={onUp}
-      >
-        <img
-          ref={imgRef} src={image} alt="Upload"
-          onLoad={init}
-          style={{ width: '100%', display: 'block', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }}
-          draggable={false}
-        />
-        {loaded && (
-          <>
-            {[
-              { top: 0,              left: 0,             width: '100%',  height: box.y },
-              { top: box.y+box.h,    left: 0,             width: '100%',  bottom: 0 },
-              { top: box.y,          left: 0,             width: box.x,   height: box.h },
-              { top: box.y,          left: box.x+box.w,   right: 0,       height: box.h },
-            ].map((s, i) => (
-              <div key={i} style={{ position: 'absolute', background: C.overlay, pointerEvents: 'none', ...s }} />
-            ))}
-            <div
-              onMouseDown={onDown} onTouchStart={onDown}
-              style={{
-                position: 'absolute', left: box.x, top: box.y, width: box.w, height: box.h,
-                border: '2px solid rgba(255,255,255,0.9)', cursor: 'grab', boxSizing: 'border-box',
-              }}
-            >
-              <div style={{ ...H, top: -7, left: -7 }} />
-              <div style={{ ...H, top: -7, right: -7 }} />
-              <div style={{ ...H, bottom: -7, left: -7 }} />
-              <div style={{ ...H, bottom: -7, right: -7 }} />
-              {[33, 66].map(p => (
-                <div key={'v'+p} style={{ position: 'absolute', left: `${p}%`, top: 0, bottom: 0, borderLeft: '1px solid rgba(255,255,255,0.22)' }} />
-              ))}
-              {[33, 66].map(p => (
-                <div key={'h'+p} style={{ position: 'absolute', top: `${p}%`, left: 0, right: 0, borderTop: '1px solid rgba(255,255,255,0.22)' }} />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <Btn secondary onClick={onBack} style={{ flex: 1 }}>← Back</Btn>
-        <Btn onClick={confirm} style={{ flex: 2 }}>Looks good →</Btn>
-      </div>
-    </div>
-  )
-}
-
-// ── Screen 5: Preview ─────────────────────────
-function Preview({ image, size, onConfirm, onBack }) {
-  const [busy, setBusy] = useState(false)
-
-  const submit = async () => {
-    setBusy(true)
+  const handleSubmit = async () => {
+    setSubmitting(true)
     try {
       await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image, size: size.id, ts: Date.now() }),
+        body: JSON.stringify({
+          pack: pack.id,
+          price: pack.price,
+          ts: Date.now(),
+        }),
       })
-    } catch (_) { /* offline / dev mode — still proceed */ }
-    setTimeout(onConfirm, 800)
+    } catch (_) {}
+    setStep('done')
+    setSubmitting(false)
   }
-
-  const W = size.ratio >= 1 ? 180 : Math.round(180 * size.ratio)
-  const H = size.ratio >= 1 ? Math.round(180 / size.ratio) : 180
-
-  return (
-    <div style={{ animation: 'fadeUp 0.4s ease both', textAlign: 'center' }}>
-      <Dots step={3} />
-      <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 400, color: C.brown, marginBottom: 4 }}>
-        Looking great!
-      </h2>
-      <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>This is how your magnet will look.</p>
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
-        <div style={{
-          width: W, height: H, borderRadius: 6, overflow: 'hidden',
-          boxShadow: '0 6px 28px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.1)',
-          border: `3px solid ${C.white}`,
-        }}>
-          <img src={image} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="Preview" />
-        </div>
-      </div>
-      <div style={{
-        background: C.goldLight, borderRadius: 10, padding: '12px 18px',
-        display: 'flex', justifyContent: 'space-between', fontSize: 13,
-        color: C.brown, marginBottom: 20,
-      }}>
-        <span>Size</span>
-        <span style={{ fontFamily: 'Georgia, serif' }}>{size.label}</span>
-      </div>
-      <p style={{ color: C.muted, fontSize: 12, marginBottom: 18 }}>
-        Once confirmed we'll print this automatically. Come pick it up in a few minutes! 🎉
-      </p>
-      <Btn onClick={submit} disabled={busy}>
-        {busy ? '⏳ Sending…' : 'Print my magnet →'}
-      </Btn>
-      {!busy && <div style={{ marginTop: 10 }}><Btn secondary onClick={onBack}>← Recrop</Btn></div>}
-    </div>
-  )
-}
-
-// ── Screen 6: Done ────────────────────────────
-function Done({ orderNum, size }) {
-  return (
-    <div style={{ animation: 'fadeUp 0.5s ease both', textAlign: 'center', paddingTop: 28 }}>
-      <div style={{ fontSize: 68, marginBottom: 14 }}>🎉</div>
-      <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 24, fontWeight: 400, color: C.brown, marginBottom: 10 }}>
-        Your magnet is printing!
-      </h2>
-      <p style={{ color: C.muted, fontSize: 14, lineHeight: 1.75, marginBottom: 28 }}>
-        Come find us at the booth in a few minutes —<br />
-        your {size.label} magnet will be ready and waiting.
-      </p>
-      <div style={{
-        background: C.white, border: `1.5px solid ${C.border}`,
-        borderRadius: 14, padding: '22px 18px', marginBottom: 28,
-      }}>
-        <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Your order number</div>
-        <div style={{ fontFamily: 'Georgia, serif', fontSize: 52, color: C.gold, letterSpacing: 6 }}>
-          #{orderNum}
-        </div>
-        <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>Show this at the booth</div>
-      </div>
-      <Logo />
-      <p style={{ fontSize: 11, color: C.border, marginTop: 8 }}>snapmagna.com</p>
-    </div>
-  )
-}
-
-// ── Root ──────────────────────────────────────
-export default function App() {
-  const [step,    setStep]    = useState('welcome')
-  const [size,    setSize]    = useState(SIZES[1]) // default 2.5x2.5
-  const [rawImg,  setRawImg]  = useState(null)
-  const [cropImg, setCropImg] = useState(null)
-  const [orderNum]            = useState(() => String(Math.floor(1000 + Math.random() * 9000)))
 
   return (
     <>
       <Head>
-        <title>SnapMagna — Custom Photo Magnets</title>
+        <title>SnapMagna — Upload Your Photos</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="description" content="Upload your photo and get a custom 2.5 inch magnet printed on the spot." />
+        <style>{`
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Georgia, serif; background: #FAF7F2; color: #2C2415; -webkit-font-smoothing: antialiased; }
+          @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+        `}</style>
       </Head>
-      <div style={{ background: C.cream, minHeight: '100vh' }}>
-        <div style={{ maxWidth: 420, margin: '0 auto', padding: '28px 22px 48px' }}>
-          {step === 'welcome' && <Welcome onStart={() => setStep('size')} />}
-          {step === 'size'    && <SizePicker selected={size} onSelect={setSize} onNext={() => setStep('upload')} onBack={() => setStep('welcome')} />}
-          {step === 'upload'  && <Upload onImage={src => { setRawImg(src); setStep('crop') }} onBack={() => setStep('size')} />}
-          {step === 'crop'    && <Crop image={rawImg} size={size} onCrop={img => { setCropImg(img); setStep('preview') }} onBack={() => setStep('upload')} />}
-          {step === 'preview' && <Preview image={cropImg} size={size} onConfirm={() => setStep('done')} onBack={() => setStep('crop')} />}
-          {step === 'done'    && <Done orderNum={orderNum} size={size} />}
-        </div>
+
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 18px 48px' }}>
+        <Logo />
+
+        {step === 'pack' && (
+          <div style={{ animation: 'fadeUp 0.4s ease both' }}>
+            <h1 style={{ fontSize: 20, fontWeight: 400, textAlign: 'center', marginBottom: 6 }}>
+              How many magnets?
+            </h1>
+            <p style={{ fontSize: 13, color: '#7A6A52', textAlign: 'center', marginBottom: 22 }}>
+              Choose your pack size to get started
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+              {PACKS.map(p => (
+                <div key={p.id} onClick={() => selectPack(p)} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '14px 18px', borderRadius: 12, cursor: 'pointer',
+                  border: `2px solid ${pack?.id === p.id ? '#C4964A' : '#E8DFD0'}`,
+                  background: pack?.id === p.id ? '#F5E9D5' : '#FFFFFF',
+                  transition: 'all 0.18s',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 500 }}>{p.label}</div>
+                    <div style={{ fontSize: 12, color: '#7A6A52' }}>{p.per}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ fontSize: 17, fontWeight: 500 }}>{p.price}</div>
+                    {pack?.id === p.id && (
+                      <div style={{
+                        width: 22, height: 22, borderRadius: '50%', background: '#C4964A',
+                        color: 'white', fontSize: 13, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>✓</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Btn onClick={() => setStep('upload')} disabled={!pack}>
+              {pack ? `Upload ${pack.id} photos →` : 'Select a pack size'}
+            </Btn>
+          </div>
+        )}
+
+        {step === 'upload' && (
+          <div style={{ animation: 'fadeUp 0.4s ease both' }}>
+            <div style={{
+              background: '#FFFFFF', borderRadius: 12, padding: '14px 16px',
+              marginBottom: 16, border: '0.5px solid #E8DFD0',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 500 }}>{pack.label}</div>
+                  <div style={{ fontSize: 13, color: '#7A6A52' }}>{pack.price}</div>
+                </div>
+                <button onClick={() => setStep('pack')}
+                  style={{ fontSize: 12, color: '#C4964A', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Change
+                </button>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                <span style={{ color: '#7A6A52' }}>Upload your photos</span>
+                <span style={{ color: allFilled ? '#2D7A3A' : '#C4964A', fontWeight: 500 }}>
+                  {filled}/{total} uploaded
+                </span>
+              </div>
+              <div style={{ height: 6, background: '#E8DFD0', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 3, transition: 'width 0.3s',
+                  background: allFilled ? '#2D7A3A' : '#C4964A',
+                  width: `${total > 0 ? (filled / total) * 100 : 0}%`,
+                }} />
+              </div>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 8, marginBottom: 18,
+            }}>
+              {photos.map((photo, i) => (
+                <Slot key={i} index={i} photo={photo}
+                  onUpload={uploadPhoto} onRemove={removePhoto} />
+              ))}
+            </div>
+
+            {!allFilled && (
+              <div style={{
+                background: '#F5E9D5', borderRadius: 8, padding: '10px 14px',
+                fontSize: 12, color: '#7A6A52', marginBottom: 14, textAlign: 'center',
+              }}>
+                Tap any empty slot to add a photo · {total - filled} remaining
+              </div>
+            )}
+
+            <Btn onClick={() => setStep('confirm')} disabled={!allFilled}>
+              {allFilled ? 'Review & checkout →' : `Upload all ${total} photos to continue`}
+            </Btn>
+          </div>
+        )}
+
+        {step === 'confirm' && (
+          <div style={{ animation: 'fadeUp 0.4s ease both' }}>
+            <h2 style={{ fontSize: 20, fontWeight: 400, textAlign: 'center', marginBottom: 6 }}>
+              Looking good!
+            </h2>
+            <p style={{ fontSize: 13, color: '#7A6A52', textAlign: 'center', marginBottom: 20 }}>
+              Review your {total} photos before placing your order
+            </p>
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 6, marginBottom: 20,
+            }}>
+              {photos.map((photo, i) => (
+                <div key={i} style={{
+                  aspectRatio: '1', borderRadius: 8, overflow: 'hidden',
+                  border: '2px solid #E8D5B0',
+                }}>
+                  <img src={photo} alt={`Photo ${i+1}`}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              ))}
+            </div>
+            <div style={{
+              background: '#FFFFFF', borderRadius: 12, padding: '14px 16px',
+              border: '0.5px solid #E8DFD0', marginBottom: 20,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
+                <span style={{ color: '#7A6A52' }}>Pack size</span>
+                <span style={{ fontWeight: 500 }}>{pack.label}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
+                <span style={{ color: '#7A6A52' }}>Photos uploaded</span>
+                <span style={{ color: '#2D7A3A' }}>✅ {total}/{total}</span>
+              </div>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', fontSize: 16,
+                paddingTop: 8, borderTop: '0.5px solid #E8DFD0',
+              }}>
+                <span style={{ fontWeight: 500 }}>Total</span>
+                <span style={{ fontWeight: 500, color: '#C4964A' }}>{pack.price}</span>
+              </div>
+            </div>
+            <Btn onClick={handleSubmit} disabled={submitting}>
+              {submitting ? '⏳ Placing order…' : `Place order · ${pack.price} →`}
+            </Btn>
+            <div style={{ marginTop: 10 }}>
+              <Btn secondary onClick={() => setStep('upload')}>← Edit photos</Btn>
+            </div>
+            <p style={{ fontSize: 11, color: '#E8DFD0', textAlign: 'center', marginTop: 12 }}>
+              🔒 Secure checkout · Ships in 2–3 business days
+            </p>
+          </div>
+        )}
+
+        {step === 'done' && (
+          <div style={{ animation: 'fadeUp 0.5s ease both', textAlign: 'center', paddingTop: 20 }}>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
+            <h2 style={{ fontSize: 24, fontWeight: 400, marginBottom: 10 }}>Order received!</h2>
+            <p style={{ color: '#7A6A52', fontSize: 14, lineHeight: 1.75, marginBottom: 28 }}>
+              We have your {total} photos and will start<br />
+              making your magnets right away.<br />
+              Expect them in 2–3 business days.
+            </p>
+            <div style={{
+              background: '#FFFFFF', borderRadius: 14, padding: '20px 18px',
+              border: '1.5px solid #E8DFD0', marginBottom: 24,
+            }}>
+              <div style={{ fontSize: 12, color: '#7A6A52', marginBottom: 6 }}>Order total</div>
+              <div style={{ fontSize: 32, color: '#C4964A', fontWeight: 500 }}>{pack.price}</div>
+              <div style={{ fontSize: 12, color: '#7A6A52', marginTop: 4 }}>
+                {pack.label} · {total} custom magnets
+              </div>
+            </div>
+            <Btn onClick={() => { setStep('pack'); setPack(null); setPhotos([]) }}>
+              Order more magnets
+            </Btn>
+          </div>
+        )}
       </div>
     </>
   )
