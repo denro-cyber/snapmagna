@@ -166,7 +166,7 @@ export default function Dashboard() {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const res  = await fetch("/api/get-orders")
+      const res  = await fetch("/api/orders")
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setOrders(data.orders || [])
