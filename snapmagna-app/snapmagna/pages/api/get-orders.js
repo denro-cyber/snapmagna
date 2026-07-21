@@ -10,28 +10,32 @@ export default async function handler(req, res) {
   try {
     const auth = Buffer.from(`${API_KEY}:${API_SECRET}`).toString('base64')
 
-    const searchUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/search`
+    // Fetch ALL images to see what paths exist
+    const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/image?max_results=50&type=upload`
 
-    const response = await fetch(searchUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        expression: 'public_id:orders/ORD-*',
-        max_results: 200,
-        sort_by: [{ created_at: 'desc' }],
-      })
+    const response = await fetch(url, {
+      headers: { Authorization: `Basic ${auth}` }
     })
 
     const data = await response.json()
-    console.log('Search result:', JSON.stringify(data).slice(0, 300))
 
+    // Log all public_ids so we can see exact paths
+    const allPaths = (data.resources || []).map(r => ({
+      public_id: r.public_id,
+      created_at: r.created_at,
+      url: r.secure_url,
+    }))
+
+    console.log('ALL PATHS IN CLOUDINARY:')
+    allPaths.forEach(p => console.log(' -', p.public_id))
+
+    // Now group by ORD- pattern regardless of path
     const orders = {}
 
     for (const resource of (data.resources || [])) {
       const pubId = resource.public_id
+
+      // Match ORD- pattern anywhere in the path
       const match = pubId.match(/ORD-\d+/)
       if (!match) continue
 
@@ -59,7 +63,12 @@ export default async function handler(req, res) {
 
     orderList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
 
-    res.status(200).json({ orders: orderList, total: orderList.length })
+    // Return both the orders AND all paths for debugging
+    res.status(200).json({
+      orders: orderList,
+      total: orderList.length,
+      debug_all_paths: allPaths.map(p => p.public_id),
+    })
 
   } catch (err) {
     console.error('Error:', err)
