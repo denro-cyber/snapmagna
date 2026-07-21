@@ -1,28 +1,48 @@
-// POST /api/orders
-// Receives: { orderId, pack, price, photoUrls, ts }
-// Saves order details — photoUrls are Cloudinary links
+// Simple file-based order storage using Vercel KV or in-memory
+// This stores orders when placed and retrieves them for dashboard
+
+// In-memory store (resets on redeploy — we'll upgrade to persistent later)
+const orderStore = global.orderStore || (global.orderStore = [])
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+  
+  // GET — return all orders
+  if (req.method === 'GET') {
+    return res.status(200).json({ 
+      orders: orderStore.sort((a,b) => b.ts - a.ts),
+      total: orderStore.length 
+    })
   }
 
-  const { orderId, pack, price, photoUrls, ts } = req.body
+  // POST — save new order
+  if (req.method === 'POST') {
+    const { orderId, pack, price, photoUrls, ts } = req.body
 
-  // Log the order with Cloudinary URLs
-  console.log('=== NEW ORDER ===')
-  console.log(`Order ID: ${orderId}`)
-  console.log(`Pack: ${pack} magnets · ${price}`)
-  console.log(`Photos (${photoUrls?.length}):`)
-  photoUrls?.forEach((url, i) => console.log(`  ${i+1}. ${url}`))
-  console.log(`Time: ${new Date(ts).toLocaleString()}`)
-  console.log('================')
+    console.log('=== NEW ORDER ===')
+    console.log(`Order: ${orderId} · ${pack} pack · ${price}`)
+    photoUrls?.forEach((url, i) => console.log(`  Photo ${i+1}: ${url}`))
 
-  // Return success
-  res.status(200).json({
-    success: true,
-    orderId,
-    message: 'Order received! Photos saved to Cloudinary.',
-    photoUrls,
-  })
+    // Save to store
+    orderStore.push({
+      orderId,
+      pack,
+      price,
+      photos: (photoUrls || []).map((url, i) => ({
+        slot: `slot_${i+1}`,
+        url,
+        thumbnail: url.replace('/upload/', '/upload/w_300,h_300,c_fill/'),
+      })),
+      ts: ts || Date.now(),
+      createdAt: new Date().toISOString(),
+      status: 'pending',
+    })
+
+    return res.status(200).json({ 
+      success: true, 
+      orderId,
+      message: 'Order saved!',
+    })
+  }
+
+  res.status(405).json({ error: 'Method not allowed' })
 }
