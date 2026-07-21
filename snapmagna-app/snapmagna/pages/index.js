@@ -52,7 +52,7 @@ async function uploadToCloudinary(base64DataUrl, slotIndex, orderId) {
   formData.append('file', base64DataUrl)
   formData.append('upload_preset', UPLOAD_PRESET)
   // Use public_id to create folder structure
-  formData.append('public_id', `${orderId}/slot_${slotIndex + 1}`)
+ formData.append('public_id', `orders/${orderId}/slot_${slotIndex + 1}`)
 
   const res = await fetch(
     `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
