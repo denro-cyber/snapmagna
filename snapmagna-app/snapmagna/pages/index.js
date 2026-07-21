@@ -51,14 +51,21 @@ async function uploadToCloudinary(base64DataUrl, slotIndex, orderId) {
   const formData = new FormData()
   formData.append('file', base64DataUrl)
   formData.append('upload_preset', UPLOAD_PRESET)
-  formData.append('folder', `orders/${orderId}`)
-  formData.append('public_id', `slot_${slotIndex + 1}`)
+  // Use public_id to create folder structure
+  formData.append('public_id', `${orderId}/slot_${slotIndex + 1}`)
 
   const res = await fetch(
     `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
     { method: 'POST', body: formData }
   )
+
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.error?.message || 'Upload failed')
+  }
+
   const data = await res.json()
+  console.log(`Photo ${slotIndex + 1} uploaded:`, data.secure_url)
   return data.secure_url
 }
 
@@ -81,11 +88,13 @@ function CropModal({ image, onConfirm, onCancel }) {
   }, [])
 
   const xy = e => { const t = e.touches?.[0] ?? e; return { x: t.clientX, y: t.clientY } }
+
   const onDown = useCallback(e => {
     e.preventDefault()
     const { x, y } = xy(e)
     drag.current = { on: true, sx: x, sy: y, ox: box.x, oy: box.y }
   }, [box])
+
   const onMove = useCallback(e => {
     if (!drag.current.on) return
     const { x, y } = xy(e)
@@ -95,6 +104,7 @@ function CropModal({ image, onConfirm, onCancel }) {
       y: Math.max(0, Math.min(dims.h - b.h, drag.current.oy + y - drag.current.sy)),
     }))
   }, [dims])
+
   const onUp = useCallback(() => { drag.current.on = false }, [])
 
   const confirm = useCallback(() => {
@@ -187,7 +197,7 @@ function CropModal({ image, onConfirm, onCancel }) {
 // ── Single slot ────────────────────────────────────────
 function Slot({ index, photo, onCropped, onRemove }) {
   const fileRef = useRef(null)
-  const [raw, setRaw]         = useState(null)
+  const [raw, setRaw]           = useState(null)
   const [cropping, setCropping] = useState(false)
 
   const handleFile = useCallback((file) => {
@@ -263,26 +273,27 @@ export default function App() {
   const allFilled = filled === total && total > 0
 
   const selectPack = (p) => { setPack(p); setPhotos(Array(p.id).fill(null)) }
+
   const setCropped = useCallback((i, src) => {
     setPhotos(prev => { const n = [...prev]; n[i] = src; return n })
   }, [])
+
   const removePhoto = useCallback((i) => {
     setPhotos(prev => { const n = [...prev]; n[i] = null; return n })
   }, [])
 
   const handleSubmit = async () => {
     setSubmitting(true)
+    const urls = []
+
     try {
-      // Upload all photos to Cloudinary
-      const urls = []
       for (let i = 0; i < photos.length; i++) {
         setProgress(`Uploading photo ${i + 1} of ${photos.length}…`)
         const url = await uploadToCloudinary(photos[i], i, orderId)
         urls.push(url)
       }
 
-      // Send order to our backend with Cloudinary URLs
-      setProgress('Placing your order…')
+      setProgress('Saving your order…')
       await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -297,9 +308,10 @@ export default function App() {
 
       setStep('done')
     } catch (err) {
-      console.error(err)
-      alert('Something went wrong. Please try again.')
+      console.error('Order failed:', err)
+      alert('Something went wrong uploading your photos. Please try again.\n\nError: ' + err.message)
     }
+
     setSubmitting(false)
     setProgress('')
   }
@@ -320,7 +332,6 @@ export default function App() {
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 18px 48px' }}>
         <Logo />
 
-        {/* PACK SELECTION */}
         {step === 'pack' && (
           <div style={{ animation: 'fadeUp 0.4s ease both' }}>
             <h1 style={{ fontSize: 20, fontWeight: 400, textAlign: 'center', marginBottom: 6 }}>
@@ -361,7 +372,6 @@ export default function App() {
           </div>
         )}
 
-        {/* UPLOAD + CROP */}
         {step === 'upload' && (
           <div style={{ animation: 'fadeUp 0.4s ease both' }}>
             <div style={{
@@ -416,7 +426,6 @@ export default function App() {
           </div>
         )}
 
-        {/* CONFIRM */}
         {step === 'confirm' && (
           <div style={{ animation: 'fadeUp 0.4s ease both' }}>
             <h2 style={{ fontSize: 20, fontWeight: 400, textAlign: 'center', marginBottom: 6 }}>
@@ -485,7 +494,6 @@ export default function App() {
           </div>
         )}
 
-        {/* DONE */}
         {step === 'done' && (
           <div style={{ animation: 'fadeUp 0.5s ease both', textAlign: 'center', paddingTop: 20 }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
