@@ -219,12 +219,7 @@ function CropModal({ image, onConfirm, onCancel }) {
       {/* Header */}
       <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <button onClick={onCancel} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: 20, padding: '6px 14px', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {tabBtn('crop', '✂️ Crop')}
-          {tabBtn('filters', '🎨 Filters')}
-          {tabBtn('blend', '✨ Blend')}
-          {tabBtn('text', 'T Text')}
-        </div>
+        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontFamily: 'Georgia, serif' }}>Edit photo</span>
         <button onClick={confirm} style={{ background: C.gold, border: 'none', color: 'white', borderRadius: 20, padding: '6px 14px', fontSize: 13, cursor: 'pointer', fontFamily: 'Georgia, serif' }}>Use photo</button>
       </div>
 
@@ -300,7 +295,30 @@ function CropModal({ image, onConfirm, onCancel }) {
       </div>
 
       {/* Bottom controls panel */}
-      <div style={{ background: 'rgba(0,0,0,0.6)', padding: '12px 16px', flexShrink: 0, maxHeight: '40vh', overflowY: 'auto' }}>
+      <div style={{ background: 'rgba(0,0,0,0.6)', flexShrink: 0, maxHeight: '45vh', overflowY: 'auto' }}>
+        
+        {/* Icon tab bar */}
+        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '0 8px' }}>
+          {[
+            { id: 'crop',    icon: '✂️', label: 'Crop'    },
+            { id: 'filters', icon: '🎨', label: 'Filters' },
+            { id: 'blend',   icon: '✨', label: 'Blend'   },
+            { id: 'text',    icon: '🔤', label: 'Text'    },
+          ].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              flex: 1, padding: '10px 4px', border: 'none', background: 'transparent',
+              color: tab === t.id ? C.gold : 'rgba(255,255,255,0.5)',
+              fontSize: 11, cursor: 'pointer', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', gap: 2,
+              borderBottom: tab === t.id ? `2px solid ${C.gold}` : '2px solid transparent',
+            }}>
+              <span style={{ fontSize: 18 }}>{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ padding: '12px 16px' }}>
 
         {/* CROP tab */}
         {tab === 'crop' && (
@@ -397,6 +415,7 @@ function CropModal({ image, onConfirm, onCancel }) {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )
