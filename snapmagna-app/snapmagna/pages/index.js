@@ -495,6 +495,13 @@ export default function App() {
   const [progress,   setProgress]   = useState('')
   const [orderId]    = useState(() => `ORD-${Date.now()}`)
 
+  // Detect mode from URL: ?mode=shop goes to Shopify, default is event mode
+  const [shopMode] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const params = new URLSearchParams(window.location.search)
+    return params.get('mode') === 'shop'
+  })
+
   const filled    = photos.filter(Boolean).length
   const total     = pack?.id ?? 0
   const allFilled = filled === total && total > 0
@@ -524,7 +531,7 @@ export default function App() {
       }
 
       // Save order to our backend
-      setProgress('Adding to cart…')
+      setProgress('Saving order…')
       await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -533,22 +540,25 @@ export default function App() {
           pack: pack.id,
           price: pack.price,
           photoUrls: urls,
+          mode: shopMode ? 'shop' : 'event',
           ts: Date.now(),
         }),
       })
 
-      // Build Shopify cart URL with variant and order note
-      const cartUrl = `https://${SHOPIFY_STORE}/cart/${pack.variantId}:1?note=${orderId}&attributes[order_id]=${orderId}&attributes[photo_count]=${urls.length}`
-
-      // Redirect to Shopify checkout
-      setProgress('Redirecting to checkout…')
-      
-      // If in iframe (Shopify popup) open in parent window
-      if (window.parent && window.parent !== window) {
-        window.parent.location.href = cartUrl
+      if (shopMode) {
+        // SHOP MODE → redirect to Shopify checkout
+        const cartUrl = `https://${SHOPIFY_STORE}/cart/${pack.variantId}:1?note=${orderId}&attributes[order_id]=${orderId}&attributes[photo_count]=${urls.length}`
+        setProgress('Redirecting to checkout…')
+        if (window.parent && window.parent !== window) {
+          window.parent.location.href = cartUrl
+        } else {
+          window.location.href = cartUrl
+        }
       } else {
-        window.location.href = cartUrl
+        // EVENT MODE → go to done screen, no payment needed
+        setStep('done')
       }
+
     } catch (err) {
       console.error(err)
       alert('Something went wrong. Please try again.')
@@ -724,7 +734,7 @@ export default function App() {
             ) : (
               <>
                 <Btn onClick={handleSubmit}>
-                  Add to cart & checkout →
+                  {shopMode ? 'Add to cart & checkout →' : 'Print my magnets →'}
                 </Btn>
                 <div style={{ marginTop: 10 }}>
                   <Btn secondary onClick={() => setStep('upload')}>← Edit photos</Btn>
@@ -733,7 +743,7 @@ export default function App() {
             )}
 
             <p style={{ fontSize: 11, color: C.border, textAlign: 'center', marginTop: 12 }}>
-              🔒 Ships in 2–3 business days · Made in Louisville, KY
+              {shopMode ? '🔒 Ships in 2–3 business days · Made in Louisville, KY' : '📍 Your magnets will be printed at the booth!'}
             </p>
           </div>
         )}
