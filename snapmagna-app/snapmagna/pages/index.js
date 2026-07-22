@@ -64,15 +64,47 @@ async function uploadToCloudinary(base64DataUrl, slotIndex, orderId) {
   return data.secure_url
 }
 
-// ── Crop modal ─────────────────────────────────────────
+// ── Crop modal with filters, text overlay and blend modes ──
+const FILTERS = [
+  { id: 'none',   label: 'Normal',    css: 'none' },
+  { id: 'vivid',  label: 'Vivid',     css: 'saturate(1.8) contrast(1.1)' },
+  { id: 'warm',   label: 'Warm',      css: 'sepia(0.3) saturate(1.4) brightness(1.05)' },
+  { id: 'cool',   label: 'Cool',      css: 'hue-rotate(20deg) saturate(1.2) brightness(1.05)' },
+  { id: 'bw',     label: 'B&W',       css: 'grayscale(1) contrast(1.1)' },
+  { id: 'faded',  label: 'Faded',     css: 'contrast(0.85) brightness(1.1) saturate(0.8)' },
+  { id: 'drama',  label: 'Drama',     css: 'contrast(1.4) saturate(1.3) brightness(0.9)' },
+  { id: 'golden', label: 'Golden',    css: 'sepia(0.5) saturate(1.6) brightness(1.1)' },
+]
+
+const BLEND_MODES = [
+  { id: 'none',       label: 'None' },
+  { id: 'soft',       label: 'Soft glow',  color: 'rgba(255,255,255,0.15)', mix: 'screen' },
+  { id: 'dark',       label: 'Dark vibe',  color: 'rgba(0,0,0,0.25)',       mix: 'multiply' },
+  { id: 'golden',     label: 'Golden',     color: 'rgba(196,150,74,0.25)',   mix: 'overlay' },
+  { id: 'blush',      label: 'Blush',      color: 'rgba(255,150,150,0.2)',   mix: 'overlay' },
+  { id: 'midnight',   label: 'Midnight',   color: 'rgba(50,50,120,0.3)',     mix: 'overlay' },
+]
+
 function CropModal({ image, onConfirm, onCancel }) {
-  const imgRef = useRef(null)
-  const drag   = useRef({ on: false, sx: 0, sy: 0, ox: 0, oy: 0 })
-  const [loaded,   setLoaded]   = useState(false)
-  const [dims,     setDims]     = useState({ w: 0, h: 0 })
-  const [box,      setBox]      = useState({ x: 0, y: 0, w: 0, h: 0 })
-  const [rotation, setRotation] = useState(0)
-  const [flipped,  setFlipped]  = useState(false)
+  const imgRef    = useRef(null)
+  const canvasRef = useRef(null)
+  const drag      = useRef({ on: false, sx: 0, sy: 0, ox: 0, oy: 0 })
+
+  const [loaded,     setLoaded]     = useState(false)
+  const [dims,       setDims]       = useState({ w: 0, h: 0 })
+  const [box,        setBox]        = useState({ x: 0, y: 0, w: 0, h: 0 })
+  const [rotation,   setRotation]   = useState(0)
+  const [flipped,    setFlipped]    = useState(false)
+  const [tab,        setTab]        = useState('crop')   // crop | filters | blend | text
+  const [filter,     setFilter]     = useState(FILTERS[0])
+  const [blend,      setBlend]      = useState(BLEND_MODES[0])
+  const [brightness, setBrightness] = useState(100)
+  const [contrast,   setContrast]   = useState(100)
+  const [saturation, setSaturation] = useState(100)
+  const [text,       setText]       = useState('')
+  const [textColor,  setTextColor]  = useState('#ffffff')
+  const [textSize,   setTextSize]   = useState(48)
+  const [textPos,    setTextPos]    = useState('bottom')
 
   const init = useCallback(() => {
     const img = imgRef.current
@@ -101,6 +133,9 @@ function CropModal({ image, onConfirm, onCancel }) {
   }, [dims])
   const onUp = useCallback(() => { drag.current.on = false }, [])
 
+  // Build CSS filter string combining preset + manual adjustments
+  const cssFilter = `${filter.css !== 'none' ? filter.css : ''} brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`.trim()
+
   const confirm = useCallback(() => {
     const img = imgRef.current
     if (!img) return
@@ -110,6 +145,8 @@ function CropModal({ image, onConfirm, onCancel }) {
     const canvas = document.createElement('canvas')
     canvas.width = OUT; canvas.height = OUT
     const ctx = canvas.getContext('2d')
+
+    // Apply rotation and flip
     ctx.save()
     ctx.translate(OUT/2, OUT/2)
     ctx.rotate(rotation * Math.PI / 180)
@@ -118,49 +155,122 @@ function CropModal({ image, onConfirm, onCancel }) {
       box.x * sx, box.y * sy, box.w * sx, box.h * sy,
       -OUT/2, -OUT/2, OUT, OUT)
     ctx.restore()
-    onConfirm(canvas.toDataURL('image/jpeg', 0.92))
-  }, [imgRef, dims, box, onConfirm])
+
+    // Apply filters via a second canvas
+    const filtered = document.createElement('canvas')
+    filtered.width = OUT; filtered.height = OUT
+    const fctx = filtered.getContext('2d')
+    fctx.filter = cssFilter || 'none'
+    fctx.drawImage(canvas, 0, 0)
+
+    // Apply blend mode overlay
+    if (blend.id !== 'none') {
+      fctx.globalCompositeOperation = blend.mix
+      fctx.fillStyle = blend.color
+      fctx.fillRect(0, 0, OUT, OUT)
+      fctx.globalCompositeOperation = 'source-over'
+    }
+
+    // Apply text overlay
+    if (text.trim()) {
+      fctx.font = `bold ${textSize}px Georgia, serif`
+      fctx.fillStyle = textColor
+      fctx.strokeStyle = 'rgba(0,0,0,0.5)'
+      fctx.lineWidth = 3
+      fctx.textAlign = 'center'
+      const ty = textPos === 'top' ? textSize + 20
+               : textPos === 'middle' ? OUT/2
+               : OUT - 30
+      fctx.strokeText(text, OUT/2, ty)
+      fctx.fillText(text, OUT/2, ty)
+    }
+
+    onConfirm(filtered.toDataURL('image/jpeg', 0.92))
+  }, [imgRef, dims, box, rotation, flipped, cssFilter, blend, text, textColor, textSize, textPos, onConfirm])
 
   const H = { position: 'absolute', width: 14, height: 14, background: 'white', borderRadius: 2 }
+
+  const tabBtn = (id, label) => (
+    <button onClick={() => setTab(id)} style={{
+      padding: '6px 14px', borderRadius: 20,
+      border: 'none', fontSize: 12,
+      background: tab === id ? C.gold : 'rgba(255,255,255,0.15)',
+      color: 'white', cursor: 'pointer',
+    }}>{label}</button>
+  )
+
+  const sliderRow = (label, val, setVal, min, max) => (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
+        <span>{label}</span><span>{val}%</span>
+      </div>
+      <input type="range" min={min} max={max} value={val}
+        onChange={e => setVal(Number(e.target.value))}
+        style={{ width: '100%', accentColor: C.gold }} />
+    </div>
+  )
 
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 99999,
-      background: 'rgba(0,0,0,0.9)',
+      background: 'rgba(0,0,0,0.95)',
       display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{
-        padding: '14px 18px', display: 'flex',
-        justifyContent: 'space-between', alignItems: 'center',
-      }}>
-        <button onClick={onCancel} style={{
-          background: 'rgba(255,255,255,0.15)', border: 'none',
-          color: 'white', borderRadius: 20, padding: '6px 14px',
-          fontSize: 13, cursor: 'pointer',
-        }}>Cancel</button>
-        <span style={{ color: 'white', fontSize: 14, fontFamily: 'Georgia, serif' }}>
-          Drag to crop
-        </span>
-        <button onClick={confirm} style={{
-          background: C.gold, border: 'none', color: 'white',
-          borderRadius: 20, padding: '6px 14px',
-          fontSize: 13, cursor: 'pointer', fontFamily: 'Georgia, serif',
-        }}>Use photo</button>
+      {/* Header */}
+      <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+        <button onClick={onCancel} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: 20, padding: '6px 14px', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {tabBtn('crop', '✂️ Crop')}
+          {tabBtn('filters', '🎨 Filters')}
+          {tabBtn('blend', '✨ Blend')}
+          {tabBtn('text', 'T Text')}
+        </div>
+        <button onClick={confirm} style={{ background: C.gold, border: 'none', color: 'white', borderRadius: 20, padding: '6px 14px', fontSize: 13, cursor: 'pointer', fontFamily: 'Georgia, serif' }}>Use photo</button>
       </div>
 
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}
+      {/* Image area */}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}
         onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
         onTouchMove={onMove} onTouchEnd={onUp}
       >
         <img ref={imgRef} src={image} alt="Crop" onLoad={init}
-          style={{ 
-            width: '100%', height: '100%', objectFit: 'contain', display: 'block', 
+          style={{
+            width: '100%', height: '100%', objectFit: 'contain', display: 'block',
             opacity: loaded ? 1 : 0,
             transform: `rotate(${rotation}deg) scaleX(${flipped ? -1 : 1})`,
             transition: 'transform 0.3s',
+            filter: cssFilter || 'none',
           }}
           draggable={false} />
-        {loaded && (
+
+        {/* Blend mode overlay */}
+        {loaded && blend.id !== 'none' && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: blend.color,
+            mixBlendMode: blend.mix,
+            pointerEvents: 'none',
+          }} />
+        )}
+
+        {/* Text preview */}
+        {loaded && text.trim() && (
+          <div style={{
+            position: 'absolute',
+            left: 0, right: 0,
+            top: textPos === 'top' ? '5%' : textPos === 'middle' ? '45%' : '85%',
+            textAlign: 'center',
+            color: textColor,
+            fontSize: Math.round(textSize * dims.w / 900),
+            fontFamily: 'Georgia, serif',
+            fontWeight: 'bold',
+            textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+            pointerEvents: 'none',
+          }}>{text}</div>
+        )}
+
+        {/* Crop overlay */}
+        {loaded && tab === 'crop' && (
           <>
             {[
               { top: 0, left: 0, width: '100%', height: box.y },
@@ -171,10 +281,8 @@ function CropModal({ image, onConfirm, onCancel }) {
               <div key={i} style={{ position: 'absolute', background: C.overlay, pointerEvents: 'none', ...s }} />
             ))}
             <div onMouseDown={onDown} onTouchStart={onDown} style={{
-              position: 'absolute', left: box.x, top: box.y,
-              width: box.w, height: box.h,
-              border: '2px solid rgba(255,255,255,0.9)',
-              cursor: 'grab', boxSizing: 'border-box',
+              position: 'absolute', left: box.x, top: box.y, width: box.w, height: box.h,
+              border: '2px solid rgba(255,255,255,0.9)', cursor: 'grab', boxSizing: 'border-box',
             }}>
               <div style={{ ...H, top: -7, left: -7 }} />
               <div style={{ ...H, top: -7, right: -7 }} />
@@ -190,24 +298,105 @@ function CropModal({ image, onConfirm, onCancel }) {
           </>
         )}
       </div>
-      {/* Rotate and flip controls */}
-      <div style={{ 
-        padding: '12px 18px', display: 'flex', 
-        justifyContent: 'center', gap: 12,
-      }}>
-        <button onClick={() => setRotation(r => (r + 90) % 360)} style={{
-          background: 'rgba(255,255,255,0.15)', border: 'none',
-          color: 'white', borderRadius: 20, padding: '8px 18px',
-          fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-        }}>↻ Rotate</button>
-        <button onClick={() => setFlipped(f => !f)} style={{
-          background: 'rgba(255,255,255,0.15)', border: 'none',
-          color: 'white', borderRadius: 20, padding: '8px 18px',
-          fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-        }}>⇄ Flip</button>
-        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, alignSelf: 'center' }}>
-          drag to crop
-        </span>
+
+      {/* Bottom controls panel */}
+      <div style={{ background: 'rgba(0,0,0,0.6)', padding: '12px 16px', flexShrink: 0, maxHeight: '40vh', overflowY: 'auto' }}>
+
+        {/* CROP tab */}
+        {tab === 'crop' && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
+            <button onClick={() => setRotation(r => (r + 90) % 360)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: 20, padding: '8px 18px', fontSize: 13, cursor: 'pointer' }}>↻ Rotate</button>
+            <button onClick={() => setFlipped(f => !f)} style={{ background: flipped ? C.gold : 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: 20, padding: '8px 18px', fontSize: 13, cursor: 'pointer' }}>⇄ Flip</button>
+          </div>
+        )}
+
+        {/* FILTERS tab */}
+        {tab === 'filters' && (
+          <div>
+            {/* Filter presets */}
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 10, marginBottom: 10 }}>
+              {FILTERS.map(f => (
+                <button key={f.id} onClick={() => setFilter(f)} style={{
+                  flexShrink: 0, padding: '6px 14px', borderRadius: 20,
+                  border: `2px solid ${filter.id === f.id ? C.gold : 'transparent'}`,
+                  background: 'rgba(255,255,255,0.1)', color: 'white',
+                  fontSize: 12, cursor: 'pointer',
+                }}>{f.label}</button>
+              ))}
+            </div>
+            {/* Manual sliders */}
+            {sliderRow('Brightness', brightness, setBrightness, 50, 150)}
+            {sliderRow('Contrast',   contrast,   setContrast,   50, 150)}
+            {sliderRow('Saturation', saturation, setSaturation, 0,  200)}
+            <button onClick={() => { setBrightness(100); setContrast(100); setSaturation(100); setFilter(FILTERS[0]) }}
+              style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'rgba(255,255,255,0.6)', borderRadius: 20, padding: '5px 14px', fontSize: 11, cursor: 'pointer' }}>
+              Reset
+            </button>
+          </div>
+        )}
+
+        {/* BLEND tab */}
+        {tab === 'blend' && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {BLEND_MODES.map(b => (
+              <button key={b.id} onClick={() => setBlend(b)} style={{
+                padding: '8px 16px', borderRadius: 20,
+                border: `2px solid ${blend.id === b.id ? C.gold : 'transparent'}`,
+                background: b.id === 'none' ? 'rgba(255,255,255,0.1)' : b.color.replace(/[\d.]+\)$/, '0.4)'),
+                color: 'white', fontSize: 12, cursor: 'pointer',
+              }}>{b.label}</button>
+            ))}
+          </div>
+        )}
+
+        {/* TEXT tab */}
+        {tab === 'text' && (
+          <div>
+            <input
+              type="text"
+              placeholder="Type your text here..."
+              value={text}
+              onChange={e => setText(e.target.value)}
+              style={{
+                width: '100%', padding: '10px 14px',
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 8, color: 'white', fontSize: 14,
+                fontFamily: 'Georgia, serif', marginBottom: 12,
+                outline: 'none',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Color:</div>
+              {['#ffffff','#000000','#C4964A','#FFD700','#FF6B6B','#74C0FC'].map(col => (
+                <div key={col} onClick={() => setTextColor(col)} style={{
+                  width: 24, height: 24, borderRadius: '50%',
+                  background: col,
+                  border: textColor === col ? `3px solid ${C.gold}` : '2px solid rgba(255,255,255,0.3)',
+                  cursor: 'pointer',
+                }} />
+              ))}
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>Size: {textSize}px</div>
+              <input type="range" min={20} max={120} value={textSize}
+                onChange={e => setTextSize(Number(e.target.value))}
+                style={{ width: '100%', accentColor: C.gold }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', alignSelf: 'center' }}>Position:</div>
+              {['top','middle','bottom'].map(pos => (
+                <button key={pos} onClick={() => setTextPos(pos)} style={{
+                  padding: '5px 12px', borderRadius: 20,
+                  border: 'none',
+                  background: textPos === pos ? C.gold : 'rgba(255,255,255,0.15)',
+                  color: 'white', fontSize: 12, cursor: 'pointer',
+                  textTransform: 'capitalize',
+                }}>{pos}</button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
