@@ -14,11 +14,13 @@ const C = {
   overlay:   'rgba(0,0,0,0.55)',
 }
 
+const SHOPIFY_STORE = 'snapmagna.myshopify.com'
+
 const PACKS = [
-  { id: 5,  label: '5 Pack',  price: '$21.99', per: '$4.40 each' },
-  { id: 9,  label: '9 Pack',  price: '$34.99', per: '$3.89 each' },
-  { id: 25, label: '25 Pack', price: '$84.99', per: '$3.40 each' },
-  { id: 50, label: '50 Pack', price: '$159.99',per: '$3.20 each' },
+  { id: 5,  label: '5 Pack',  price: '$21.99', per: '$4.40 each', variantId: '49293393199363' },
+  { id: 9,  label: '9 Pack',  price: '$34.99', per: '$3.89 each', variantId: '49293393232131' },
+  { id: 25, label: '25 Pack', price: '$84.99', per: '$3.40 each', variantId: '49293393264899' },
+  { id: 50, label: '50 Pack', price: '$159.99',per: '$3.20 each', variantId: '49293393297667' },
 ]
 
 const CLOUD_NAME    = 'nvkjjpn9'
@@ -286,8 +288,8 @@ export default function App() {
         urls.push(url)
       }
 
-      // Send order to our backend with Cloudinary URLs
-      setProgress('Placing your order…')
+      // Save order to our backend
+      setProgress('Adding to cart…')
       await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -300,7 +302,18 @@ export default function App() {
         }),
       })
 
-      setStep('done')
+      // Build Shopify cart URL with variant and order note
+      const cartUrl = `https://${SHOPIFY_STORE}/cart/${pack.variantId}:1?note=${orderId}&attributes[order_id]=${orderId}&attributes[photo_count]=${urls.length}`
+
+      // Redirect to Shopify checkout
+      setProgress('Redirecting to checkout…')
+      
+      // If in iframe (Shopify popup) open in parent window
+      if (window.parent && window.parent !== window) {
+        window.parent.location.href = cartUrl
+      } else {
+        window.location.href = cartUrl
+      }
     } catch (err) {
       console.error(err)
       alert('Something went wrong. Please try again.')
@@ -476,7 +489,7 @@ export default function App() {
             ) : (
               <>
                 <Btn onClick={handleSubmit}>
-                  Place order · {pack.price} →
+                  Add to cart & checkout →
                 </Btn>
                 <div style={{ marginTop: 10 }}>
                   <Btn secondary onClick={() => setStep('upload')}>← Edit photos</Btn>
