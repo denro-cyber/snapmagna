@@ -68,9 +68,11 @@ async function uploadToCloudinary(base64DataUrl, slotIndex, orderId) {
 function CropModal({ image, onConfirm, onCancel }) {
   const imgRef = useRef(null)
   const drag   = useRef({ on: false, sx: 0, sy: 0, ox: 0, oy: 0 })
-  const [loaded, setLoaded] = useState(false)
-  const [dims,   setDims]   = useState({ w: 0, h: 0 })
-  const [box,    setBox]    = useState({ x: 0, y: 0, w: 0, h: 0 })
+  const [loaded,   setLoaded]   = useState(false)
+  const [dims,     setDims]     = useState({ w: 0, h: 0 })
+  const [box,      setBox]      = useState({ x: 0, y: 0, w: 0, h: 0 })
+  const [rotation, setRotation] = useState(0)
+  const [flipped,  setFlipped]  = useState(false)
 
   const init = useCallback(() => {
     const img = imgRef.current
@@ -107,9 +109,15 @@ function CropModal({ image, onConfirm, onCancel }) {
     const OUT = 900
     const canvas = document.createElement('canvas')
     canvas.width = OUT; canvas.height = OUT
-    canvas.getContext('2d').drawImage(img,
+    const ctx = canvas.getContext('2d')
+    ctx.save()
+    ctx.translate(OUT/2, OUT/2)
+    ctx.rotate(rotation * Math.PI / 180)
+    if (flipped) ctx.scale(-1, 1)
+    ctx.drawImage(img,
       box.x * sx, box.y * sy, box.w * sx, box.h * sy,
-      0, 0, OUT, OUT)
+      -OUT/2, -OUT/2, OUT, OUT)
+    ctx.restore()
     onConfirm(canvas.toDataURL('image/jpeg', 0.92))
   }, [imgRef, dims, box, onConfirm])
 
@@ -145,7 +153,12 @@ function CropModal({ image, onConfirm, onCancel }) {
         onTouchMove={onMove} onTouchEnd={onUp}
       >
         <img ref={imgRef} src={image} alt="Crop" onLoad={init}
-          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', opacity: loaded ? 1 : 0 }}
+          style={{ 
+            width: '100%', height: '100%', objectFit: 'contain', display: 'block', 
+            opacity: loaded ? 1 : 0,
+            transform: `rotate(${rotation}deg) scaleX(${flipped ? -1 : 1})`,
+            transition: 'transform 0.3s',
+          }}
           draggable={false} />
         {loaded && (
           <>
@@ -177,9 +190,23 @@ function CropModal({ image, onConfirm, onCancel }) {
           </>
         )}
       </div>
-      <div style={{ padding: '12px', textAlign: 'center' }}>
-        <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
-          Square crop · drag to reposition
+      {/* Rotate and flip controls */}
+      <div style={{ 
+        padding: '12px 18px', display: 'flex', 
+        justifyContent: 'center', gap: 12,
+      }}>
+        <button onClick={() => setRotation(r => (r + 90) % 360)} style={{
+          background: 'rgba(255,255,255,0.15)', border: 'none',
+          color: 'white', borderRadius: 20, padding: '8px 18px',
+          fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+        }}>↻ Rotate</button>
+        <button onClick={() => setFlipped(f => !f)} style={{
+          background: 'rgba(255,255,255,0.15)', border: 'none',
+          color: 'white', borderRadius: 20, padding: '8px 18px',
+          fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+        }}>⇄ Flip</button>
+        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, alignSelf: 'center' }}>
+          drag to crop
         </span>
       </div>
     </div>
@@ -335,7 +362,7 @@ export default function App() {
         `}</style>
       </Head>
 
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 18px 48px' }}>
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 48px' }}>
         <Logo />
 
         {/* PACK SELECTION */}
