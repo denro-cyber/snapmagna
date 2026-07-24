@@ -53,7 +53,6 @@ async function uploadToCloudinary(base64DataUrl, slotIndex, orderId) {
   const formData = new FormData()
   formData.append('file', base64DataUrl)
   formData.append('upload_preset', UPLOAD_PRESET)
-  formData.append('folder', `orders/${orderId}`)
   formData.append('public_id', `${orderId}_slot_${slotIndex + 1}`)
 
   const res = await fetch(
@@ -138,9 +137,26 @@ function CropModal({ image, onConfirm, onCancel }) {
   const confirm = useCallback(() => {
     const img = imgRef.current
     if (!img) return
-    const sx = img.naturalWidth  / dims.w
-    const sy = img.naturalHeight / dims.h
     const OUT = 900
+
+    // Account for objectFit: contain — image may not fill the full container
+    const naturalW = img.naturalWidth
+    const naturalH = img.naturalHeight
+    const containerW = dims.w
+    const containerH = dims.h
+    const scale = Math.min(containerW / naturalW, containerH / naturalH)
+    const renderedW = naturalW * scale
+    const renderedH = naturalH * scale
+    const offsetX = (containerW - renderedW) / 2
+    const offsetY = (containerH - renderedH) / 2
+
+    // Convert box coords (in container space) to image pixel coords
+    const sx = 1 / scale
+    const cropX = (box.x - offsetX) * sx
+    const cropY = (box.y - offsetY) * sx
+    const cropW = box.w * sx
+    const cropH = box.h * sx
+
     const canvas = document.createElement('canvas')
     canvas.width = OUT; canvas.height = OUT
     const ctx = canvas.getContext('2d')
@@ -150,7 +166,7 @@ function CropModal({ image, onConfirm, onCancel }) {
     ctx.rotate(rotation * Math.PI / 180)
     if (flipped) ctx.scale(-1, 1)
     ctx.drawImage(img,
-      box.x * sx, box.y * sy, box.w * sx, box.h * sy,
+      cropX, cropY, cropW, cropH,
       -OUT/2, -OUT/2, OUT, OUT)
     ctx.restore()
 
