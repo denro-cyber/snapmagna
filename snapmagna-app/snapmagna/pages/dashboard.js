@@ -29,7 +29,7 @@ const TEMPLATE_SRC = '/api/template'
 async function generatePDF(order) {
   return new Promise(async (resolve, reject) => {
     try {
-      const { jsPDF } = await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+      const { jsPDF } = await import('jspdf')
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' })
       const templateImg = await loadImage(TEMPLATE_SRC)
       const photos = order.photos
@@ -45,7 +45,8 @@ async function generatePDF(order) {
         for (let i = 0; i < chunk.length; i++) {
           const [x1, y1, x2, y2] = SLOTS[i]
           try {
-            const photoImg = await loadImage(chunk[i].url + '?_t=' + Date.now())
+            const proxiedUrl = '/api/proxy-image?url=' + encodeURIComponent(chunk[i].url)
+            const photoImg = await loadImage(proxiedUrl)
             ctx.drawImage(photoImg, x1, y1, x2 - x1, y2 - y1)
           } catch {
             ctx.fillStyle = '#F5E9D5'
@@ -64,7 +65,6 @@ async function generatePDF(order) {
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    img.crossOrigin = 'anonymous'
     img.onload  = () => resolve(img)
     img.onerror = reject
     img.src = src
