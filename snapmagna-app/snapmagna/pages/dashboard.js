@@ -57,13 +57,28 @@ async function generatePDF(order) {
         ctx.fillRect(0, 0, TEMPLATE_W, TEMPLATE_H)
         for (let i = 0; i < chunk.length; i++) {
           const [x1, y1, x2, y2] = SLOTS[i]
+          const slotW = x2 - x1
+          const slotH = y2 - y1
           try {
             const proxiedUrl = '/api/proxy-image?url=' + encodeURIComponent(chunk[i].url)
             const photoImg = await loadImage(proxiedUrl)
-            ctx.drawImage(photoImg, x1, y1, x2 - x1, y2 - y1)
+            // Cover logic: scale to fill slot, center crop
+            const imgW = photoImg.naturalWidth
+            const imgH = photoImg.naturalHeight
+            const scale = Math.max(slotW / imgW, slotH / imgH)
+            const drawW = imgW * scale
+            const drawH = imgH * scale
+            const offsetX = x1 + (slotW - drawW) / 2
+            const offsetY = y1 + (slotH - drawH) / 2
+            ctx.save()
+            ctx.beginPath()
+            ctx.rect(x1, y1, slotW, slotH)
+            ctx.clip()
+            ctx.drawImage(photoImg, offsetX, offsetY, drawW, drawH)
+            ctx.restore()
           } catch {
             ctx.fillStyle = '#F5E9D5'
-            ctx.fillRect(x1, y1, x2 - x1, y2 - y1)
+            ctx.fillRect(x1, y1, slotW, slotH)
           }
         }
         ctx.drawImage(templateImg, 0, 0, TEMPLATE_W, TEMPLATE_H)
