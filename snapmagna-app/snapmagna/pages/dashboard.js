@@ -29,7 +29,8 @@ const TEMPLATE_SRC = '/api/template'
 async function generatePDF(order) {
   return new Promise(async (resolve, reject) => {
     try {
-      const { jsPDF } = await import('jspdf')
+      const jspdfModule = await import('jspdf')
+      const jsPDF = jspdfModule.jsPDF ?? jspdfModule.default?.jsPDF ?? jspdfModule.default
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' })
       const templateImg = await loadImage(TEMPLATE_SRC)
       const photos = order.photos
