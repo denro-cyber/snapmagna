@@ -26,11 +26,23 @@ const TEMPLATE_W = 2551
 const TEMPLATE_H = 3301
 const TEMPLATE_SRC = '/api/template'
 
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector('script[src="' + src + '"]')) { resolve(); return }
+    const s = document.createElement('script')
+    s.src = src
+    s.onload = resolve
+    s.onerror = reject
+    document.head.appendChild(s)
+  })
+}
+
 async function generatePDF(order) {
   return new Promise(async (resolve, reject) => {
     try {
-      const jspdfModule = await import('jspdf')
-      const jsPDF = jspdfModule.jsPDF ?? jspdfModule.default?.jsPDF ?? jspdfModule.default
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+      const jsPDF = window.jspdf && window.jspdf.jsPDF
+      if (!jsPDF) throw new Error('jsPDF failed to load from CDN')
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' })
       const templateImg = await loadImage(TEMPLATE_SRC)
       const photos = order.photos
