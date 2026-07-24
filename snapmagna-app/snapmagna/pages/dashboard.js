@@ -53,8 +53,11 @@ async function generatePDF(order) {
         canvas.width  = TEMPLATE_W
         canvas.height = TEMPLATE_H
         const ctx = canvas.getContext('2d')
+        // Step 1: white background
         ctx.fillStyle = '#FFFFFF'
         ctx.fillRect(0, 0, TEMPLATE_W, TEMPLATE_H)
+
+        // Step 2: draw photos into slots
         for (let i = 0; i < chunk.length; i++) {
           const [x1, y1, x2, y2] = SLOTS[i]
           const slotW = x2 - x1
@@ -62,7 +65,6 @@ async function generatePDF(order) {
           try {
             const proxiedUrl = '/api/proxy-image?url=' + encodeURIComponent(chunk[i].url)
             const photoImg = await loadImage(proxiedUrl)
-            // Cover logic: scale to fill slot, center crop
             const imgW = photoImg.naturalWidth
             const imgH = photoImg.naturalHeight
             const scale = Math.max(slotW / imgW, slotH / imgH)
@@ -81,8 +83,18 @@ async function generatePDF(order) {
             ctx.fillRect(x1, y1, slotW, slotH)
           }
         }
-        ctx.drawImage(templateImg, 0, 0, TEMPLATE_W, TEMPLATE_H)
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 8.5, 11)
+
+        // Step 3: overlay template PNG using a second canvas to handle transparency
+        const composite = document.createElement('canvas')
+        composite.width  = TEMPLATE_W
+        composite.height = TEMPLATE_H
+        const cctx = composite.getContext('2d')
+        // Draw photos layer first
+        cctx.drawImage(canvas, 0, 0)
+        // Draw template on top (transparent slots let photos show through)
+        cctx.drawImage(templateImg, 0, 0, TEMPLATE_W, TEMPLATE_H)
+        // Export as PNG to preserve transparency compositing
+        pdf.addImage(composite.toDataURL('image/png'), 'PNG', 0, 0, 8.5, 11)
       }
       pdf.save('SnapMagna_' + order.orderId + '.pdf')
       resolve()
