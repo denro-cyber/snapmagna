@@ -24,8 +24,7 @@ const SLOTS = [
 ]
 const TEMPLATE_W = 1545
 const TEMPLATE_H = 2000
-const TEMPLATE_SRC = '/api/template'
-
+// ── Generate print PDF from order photos ──────────────────────────────────────
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     if (document.querySelector('script[src="' + src + '"]')) { resolve(); return }
@@ -44,58 +43,80 @@ async function generatePDF(order) {
       const jsPDF = window.jspdf && window.jspdf.jsPDF
       if (!jsPDF) throw new Error('jsPDF failed to load from CDN')
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' })
-      const templateImg = await loadImage(TEMPLATE_SRC)
+
       const photos = order.photos
       for (let sheetIdx = 0; sheetIdx * 6 < photos.length; sheetIdx++) {
         if (sheetIdx > 0) pdf.addPage()
         const chunk = photos.slice(sheetIdx * 6, sheetIdx * 6 + 6)
+
         const canvas = document.createElement('canvas')
         canvas.width  = TEMPLATE_W
         canvas.height = TEMPLATE_H
         const ctx = canvas.getContext('2d')
-        // Step 1: white background
+
+        // White background
         ctx.fillStyle = '#FFFFFF'
         ctx.fillRect(0, 0, TEMPLATE_W, TEMPLATE_H)
 
-        // Step 2: draw photos into slots
-        for (let i = 0; i < chunk.length; i++) {
+        for (let i = 0; i < SLOTS.length; i++) {
           const [x1, y1, x2, y2] = SLOTS[i]
           const slotW = x2 - x1
           const slotH = y2 - y1
-          try {
-            const proxiedUrl = '/api/proxy-image?url=' + encodeURIComponent(chunk[i].url)
-            const photoImg = await loadImage(proxiedUrl)
-            const imgW = photoImg.naturalWidth
-            const imgH = photoImg.naturalHeight
-            const scale = Math.max(slotW / imgW, slotH / imgH)
-            const drawW = imgW * scale
-            const drawH = imgH * scale
-            const offsetX = x1 + (slotW - drawW) / 2
-            const offsetY = y1 + (slotH - drawH) / 2
-            ctx.save()
-            ctx.beginPath()
-            ctx.rect(x1, y1, slotW, slotH)
-            ctx.clip()
-            ctx.drawImage(photoImg, offsetX, offsetY, drawW, drawH)
-            ctx.restore()
-          } catch {
-            ctx.fillStyle = '#F5E9D5'
-            ctx.fillRect(x1, y1, slotW, slotH)
+          const cx = x1 + slotW / 2
+          const corner = Math.round(slotW * 0.12)
+
+          // Draw photo
+          if (i < chunk.length) {
+            try {
+              const proxiedUrl = '/api/proxy-image?url=' + encodeURIComponent(chunk[i].url)
+              const photoImg = await loadImage(proxiedUrl)
+              const imgW = photoImg.naturalWidth
+              const imgH = photoImg.naturalHeight
+              const scale = Math.max(slotW / imgW, slotH / imgH)
+              const drawW = imgW * scale
+              const drawH = imgH * scale
+              const offsetX = x1 + (slotW - drawW) / 2
+              const offsetY = y1 + (slotH - drawH) / 2
+              ctx.save()
+              ctx.beginPath()
+              ctx.rect(x1, y1, slotW, slotH)
+              ctx.clip()
+              ctx.drawImage(photoImg, offsetX, offsetY, drawW, drawH)
+              ctx.restore()
+            } catch {
+              ctx.fillStyle = '#F5E9D5'
+              ctx.fillRect(x1, y1, slotW, slotH)
+            }
           }
+
+          // Draw octagon cut line (dashed)
+          const octPts = [
+            [x1 + corner, y1], [x2 - corner, y1],
+            [x2, y1 + corner], [x2, y2 - corner],
+            [x2 - corner, y2], [x1 + corner, y2],
+            [x1, y2 - corner], [x1, y1 + corner],
+          ]
+          ctx.save()
+          ctx.strokeStyle = '#999999'
+          ctx.lineWidth = 3
+          ctx.setLineDash([12, 8])
+          ctx.beginPath()
+          ctx.moveTo(octPts[0][0], octPts[0][1])
+          for (let p = 1; p < octPts.length; p++) ctx.lineTo(octPts[p][0], octPts[p][1])
+          ctx.closePath()
+          ctx.stroke()
+          ctx.restore()
+
+          // snapmagna.com text
+          ctx.fillStyle = '#AAAAAA'
+          ctx.font = '22px Arial'
+          ctx.textAlign = 'center'
+          ctx.fillText('snapmagna.com', cx, y2 - 18)
         }
 
-        // Step 3: overlay template PNG using a second canvas to handle transparency
-        const composite = document.createElement('canvas')
-        composite.width  = TEMPLATE_W
-        composite.height = TEMPLATE_H
-        const cctx = composite.getContext('2d')
-        // Draw photos layer first
-        cctx.drawImage(canvas, 0, 0)
-        // Draw template on top (transparent slots let photos show through)
-        cctx.drawImage(templateImg, 0, 0, TEMPLATE_W, TEMPLATE_H)
-        // Export as PNG to preserve transparency compositing
-        pdf.addImage(composite.toDataURL('image/png'), 'PNG', 0, 0, 8.5, 11)
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 8.5, 11)
       }
+
       pdf.save('SnapMagna_' + order.orderId + '.pdf')
       resolve()
     } catch (err) { reject(err) }
