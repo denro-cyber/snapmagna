@@ -71,8 +71,8 @@ async function generatePDF(order) {
             try {
               const proxiedUrl = '/api/proxy-image?url=' + encodeURIComponent(chunk[i].url)
               const photoImg = await loadImage(proxiedUrl)
-              const imgW = photoImg.naturalWidth
-              const imgH = photoImg.naturalHeight
+              const imgW = photoImg.naturalWidth || photoImg.width || 900
+              const imgH = photoImg.naturalHeight || photoImg.height || 900
               const scale = Math.max(slotW / imgW, slotH / imgH)
               const drawW = imgW * scale
               const drawH = imgH * scale
@@ -84,7 +84,7 @@ async function generatePDF(order) {
               ctx.clip()
               ctx.drawImage(photoImg, offsetX, offsetY, drawW, drawH)
               ctx.restore()
-            } catch {
+            } catch (e) {
               ctx.fillStyle = '#F5E9D5'
               ctx.fillRect(x1, y1, slotW, slotH)
             }
