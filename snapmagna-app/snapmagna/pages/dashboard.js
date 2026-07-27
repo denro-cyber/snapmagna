@@ -15,12 +15,12 @@ const C = {
 }
 
 const SLOTS = [
-  [228, 135,  680, 619],
-  [863, 135,  1315, 619],
-  [228, 768,  680, 1252],
-  [863, 768,  1315, 1252],
-  [228, 1406, 680, 1890],
-  [863, 1406, 1315, 1890],
+  [228, 108,  680, 560],
+  [863, 108,  1315, 560],
+  [228, 741,  680, 1193],
+  [863, 741,  1315, 1193],
+  [228, 1374, 680, 1826],
+  [863, 1374, 1315, 1826],
 ]
 const TEMPLATE_W = 1545
 const TEMPLATE_H = 2000
@@ -44,6 +44,9 @@ async function generatePDF(order) {
       if (!jsPDF) throw new Error('jsPDF failed to load from CDN')
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' })
 
+      // Load template
+      const templateImg = await loadImage('/api/template')
+
       const photos = order.photos
       for (let sheetIdx = 0; sheetIdx * 6 < photos.length; sheetIdx++) {
         if (sheetIdx > 0) pdf.addPage()
@@ -58,14 +61,12 @@ async function generatePDF(order) {
         ctx.fillStyle = '#FFFFFF'
         ctx.fillRect(0, 0, TEMPLATE_W, TEMPLATE_H)
 
+        // Draw photos into slots first
         for (let i = 0; i < SLOTS.length; i++) {
           const [x1, y1, x2, y2] = SLOTS[i]
           const slotW = x2 - x1
           const slotH = y2 - y1
-          const cx = x1 + slotW / 2
-          const corner = Math.round(slotW * 0.12)
 
-          // Draw photo
           if (i < chunk.length) {
             try {
               const proxiedUrl = '/api/proxy-image?url=' + encodeURIComponent(chunk[i].url)
@@ -88,33 +89,17 @@ async function generatePDF(order) {
               ctx.fillRect(x1, y1, slotW, slotH)
             }
           }
-
-          // Draw octagon cut line (dashed)
-          const octPts = [
-            [x1 + corner, y1], [x2 - corner, y1],
-            [x2, y1 + corner], [x2, y2 - corner],
-            [x2 - corner, y2], [x1 + corner, y2],
-            [x1, y2 - corner], [x1, y1 + corner],
-          ]
-          ctx.save()
-          ctx.strokeStyle = '#999999'
-          ctx.lineWidth = 3
-          ctx.setLineDash([12, 8])
-          ctx.beginPath()
-          ctx.moveTo(octPts[0][0], octPts[0][1])
-          for (let p = 1; p < octPts.length; p++) ctx.lineTo(octPts[p][0], octPts[p][1])
-          ctx.closePath()
-          ctx.stroke()
-          ctx.restore()
-
-          // snapmagna.com text
-          ctx.fillStyle = '#AAAAAA'
-          ctx.font = '22px Arial'
-          ctx.textAlign = 'center'
-          ctx.fillText('snapmagna.com', cx, y2 - 18)
         }
 
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 8.5, 11)
+        // Overlay template on top (transparent photo areas let photos show through)
+        const composite = document.createElement('canvas')
+        composite.width  = TEMPLATE_W
+        composite.height = TEMPLATE_H
+        const cctx = composite.getContext('2d')
+        cctx.drawImage(canvas, 0, 0)
+        cctx.drawImage(templateImg, 0, 0, TEMPLATE_W, TEMPLATE_H)
+
+        pdf.addImage(composite.toDataURL('image/png'), 'PNG', 0, 0, 8.5, 11)
       }
 
       pdf.save('SnapMagna_' + order.orderId + '.pdf')
